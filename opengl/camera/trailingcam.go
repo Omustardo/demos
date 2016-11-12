@@ -8,7 +8,7 @@ import (
 )
 
 
-var _ CameraI= (*TrailingCamera)(nil)
+var _ Camera = (*TrailingCamera)(nil)
 
 // Trailing Camera follows a target with has a short delay.
 type TrailingCamera struct {
@@ -17,7 +17,7 @@ type TrailingCamera struct {
 	MaxTrailingDistance float32
 }
 
-func NewTrailingCamera(target entity.Entity) *TrailingCamera {
+func NewTrailingCamera(target entity.Entity) Camera {
 	c := &TrailingCamera{
 		TargetCamera: TargetCamera{
 			target: target,

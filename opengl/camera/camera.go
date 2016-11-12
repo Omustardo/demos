@@ -4,7 +4,7 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-type CameraI interface {
+type Camera interface {
 	ModelView() mgl32.Mat4
 	Near() float32
 	Far() float32

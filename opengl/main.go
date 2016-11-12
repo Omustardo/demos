@@ -30,12 +30,22 @@ const (
 )
 
 func main() {
+	// TODO: Loading screen.
+
 	err := glfw.Init(gl.ContextWatcher)
 	if err != nil {
 		panic(err)
 	}
 	defer glfw.Terminate()
 	glfw.WindowHint(glfw.Samples, 16) // Anti-aliasing.
+
+	// Window hints to require OpenGL 3.2 or above, and to disable deprecated functions. https://open.gl/context#GLFW
+	// These hints are not supported since we're using goxjs/glfw rather than the regular glfw, but should be used in a
+	// standard desktop glfw project. TODO: Add support for these in goxjs/glfw/hint_glfw.go
+	//glfw.WindowHint(glfw.ContextVersionMajor, 3)
+	//glfw.WindowHint(glfw.ContextVersionMinor, 2)
+	//glfw.WindowHint(glfw.OpenGLProfile, glfw.OPENGL_CORE_PROFILE)
+	//glfw.WindowHint(glfw.OpenGLForwardCompatible, gl.TRUE)
 
 	// Note CreateWindow ignores input size for WebGL/HTML canvas - it expands to fill browser window.
 	// It still matters for desktop.
@@ -70,6 +80,7 @@ func main() {
 		framebufferSizeCallback(window, framebufferSizeX, framebufferSizeY)
 	}
 	window.SetFramebufferSizeCallback(framebufferSizeCallback)
+	// TODO: Support fullscreen
 
 	// Init shaders.
 	if err := shader.SetupProgram(); err != nil {
@@ -97,7 +108,7 @@ func main() {
 		R:      0.8, G: 0.1, B: 0.3, A: 1,
 		Angle: float32(math.Pi / 2),
 	}
-	cam := camera.CameraI(camera.NewTargetCamera(player)) // TODO: Consider having NewCamera functions return CameraI's
+	cam := camera.NewTargetCamera(player)
 
 	miscCircles := []*shape.Circle{
 		{
@@ -135,27 +146,26 @@ func main() {
 		return shapes
 	}
 
-	parallaxObjects := genParallaxRects(500, 8, 5, 0.1, 0.2)                                // Near
-	parallaxObjects = append(parallaxObjects, genParallaxRects(300, 5, 3.5, 0.35, 0.5)...)  // Med
-	parallaxObjects = append(parallaxObjects, genParallaxRects(100, 2, 0.5, 0.75, 0.85)...) // Far
-	parallaxObjects = append(parallaxObjects, genParallaxRects(50, 1, 0.1, 0.9, 0.95)...)   // Distant
+	parallaxObjects := genParallaxRects(50, 8, 5, 0.1, 0.2)                                // Near
+	parallaxObjects = append(parallaxObjects, genParallaxRects(30, 5, 3.5, 0.35, 0.5)...)  // Med
+	parallaxObjects = append(parallaxObjects, genParallaxRects(15, 2, 0.5, 0.75, 0.85)...) // Far
+	parallaxObjects = append(parallaxObjects, genParallaxRects(15, 1, 0.1, 0.9, 0.95)...)  // Distant
 
 	ticker := time.NewTicker(framerate)
 	gameTicker := time.NewTicker(gametick)
-	debugLogTicker := time.NewTicker(time.Second * 2)
+	debugLogTicker := time.NewTicker(time.Second)
 	for !window.ShouldClose() {
 		fpsCounter.Update()
 
 		// Handle Input
 		keyboardHandler.Update()
 		mouseHandler.Update()
-		ApplyInputs(keyboardHandler, mouseHandler, player, cam)
+		ApplyInputs(keyboardHandler, mouseHandler, player)
 
 		// Run game logic
 		select {
 		case _, ok := <-gameTicker.C: // do stuff with game logic on ticks to minimize expensive calculations.
 			if ok {
-				fmt.Println(fpsCounter.GetFPS(), "fps")
 			}
 		default:
 		}
@@ -181,14 +191,18 @@ func main() {
 		}
 		player.Draw()
 
-		window.SwapBuffers()
-		glfw.PollEvents()
+		window.SwapBuffers() // Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
+		glfw.PollEvents()    // Reads window events, like input (?)
 
 		// Debug logging - limited to once every X seconds to avoid spam.
 		select {
 		case _, ok := <-debugLogTicker.C:
 			if ok {
 				fmt.Println("location:", cam.Position())
+				if mouseHandler.LeftPressed() {
+					fmt.Println("detected mouse press at", mouseHandler.Position)
+				}
+				fmt.Println(fpsCounter.GetFPS(), "fps")
 			}
 		default:
 		}
@@ -196,7 +210,7 @@ func main() {
 	}
 }
 
-func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler, player shape.Shape, cam camera.CameraI) {
+func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler, player shape.Shape) {
 	var move mgl32.Vec2
 	if keyboardHandler.IsKeyDown(glfw.KeyA) || keyboardHandler.LeftPressed() {
 		move[0] = -1

@@ -73,4 +73,5 @@ func (t *Triangle) DrawFilled() {
 	gl.DrawArrays(gl.TRIANGLES, 0, itemCount)
 
 	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	gl.DeleteBuffer(vbuffer)
 }

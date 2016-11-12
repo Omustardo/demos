@@ -63,6 +63,7 @@ func (l *Line) Draw() {
 	gl.DrawArrays(gl.LINES, 0, itemCount)
 
 	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	gl.DeleteBuffer(vbuffer)
 }
 
 // DrawFilled for a line is equivalent to Draw, but still required for the Shape interface.

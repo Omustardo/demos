@@ -9,6 +9,8 @@ import (
 )
 
 // Online live shader editor: http://shdr.bkcore.com/
+// gman's explanation is great: http://stackoverflow.com/questions/30364213/shaders-in-webgl-vs-opengl
+// GLSL (GL Shading Language) Reference: http://www.shaderific.com/glsl/   Particularly the qualifiers section.
 
 const (
 	// VertexSource is a vertex shader. The goal is to get a vertex in world space to a point in OpenGL's -1 to +1 screen coordinates.
@@ -53,7 +55,6 @@ var (
 	PMatrixUniform  gl.Uniform
 	ColorUniform    gl.Uniform
 
-	// TODO: Learn more about shaders. What's attrib vs uniform?
 	VertexPositionAttrib gl.Attrib
 )
 

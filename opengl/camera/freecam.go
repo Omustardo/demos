@@ -3,7 +3,7 @@ package camera
 import "github.com/go-gl/mathgl/mgl32"
 
 // Compile time check that FreeCamera implements CameraI
-var _ CameraI = (*FreeCamera)(nil)
+var _ Camera = (*FreeCamera)(nil)
 
 // FreeCamera is a camera that is not attached to any player. It can be scrolled around the level by modifying the Pos.
 type FreeCamera struct {

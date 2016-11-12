@@ -5,7 +5,7 @@ import (
 	"github.com/omustardo/demos/opengl/entity"
 )
 
-var _ CameraI = (*TargetCamera)(nil)
+var _ Camera = (*TargetCamera)(nil)
 
 // TargetCamera is a camera that is always locked to an entity.
 type TargetCamera struct {
@@ -13,7 +13,7 @@ type TargetCamera struct {
 	Pos    mgl32.Vec3 // This should always reflect the target's position, but always with a Z value > 0
 }
 
-func NewTargetCamera(target entity.Entity) *TargetCamera {
+func NewTargetCamera(target entity.Entity) Camera {
 	p := &TargetCamera{
 		target: target,
 	}
