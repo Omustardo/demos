@@ -62,7 +62,7 @@ func (l *Line) Draw() {
 	setColor(l.R, l.G, l.B, l.A) // set color
 	gl.DrawArrays(gl.LINES, 0, itemCount)
 
-	cleanup(vbuffer)
+	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
 }
 
 // DrawFilled for a line is equivalent to Draw, but still required for the Shape interface.

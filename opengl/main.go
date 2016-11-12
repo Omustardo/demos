@@ -58,6 +58,8 @@ func main() {
 	//gl.Enable(gl.DEPTH_TEST) // TODO: Enable once everything uses 3D meshes. For now just depend on draw order.
 	//gl.DepthFunc(gl.LESS) // Accept fragment if it closer to the camera than the former one
 
+	shape.LoadModels()
+
 	// Set up a callback for when the window is resized. Call it once for good measure.
 	framebufferSizeCallback := func(w *glfw.Window, framebufferSize0, framebufferSize1 int) {
 		gl.Viewport(0, 0, framebufferSize0, framebufferSize1)
@@ -153,7 +155,7 @@ func main() {
 		select {
 		case _, ok := <-gameTicker.C: // do stuff with game logic on ticks to minimize expensive calculations.
 			if ok {
-				// fmt.Println(fpsCounter.GetFPSString())
+				fmt.Println(fpsCounter.GetFPS(), "fps")
 			}
 		default:
 		}
@@ -186,8 +188,7 @@ func main() {
 		select {
 		case _, ok := <-debugLogTicker.C:
 			if ok {
-				fmt.Println(cam.Position())
-
+				fmt.Println("location:", cam.Position())
 			}
 		default:
 		}

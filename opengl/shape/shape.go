@@ -24,6 +24,12 @@ type Shape interface {
 	Position() mgl32.Vec3
 }
 
+// Loads models into buffers on the GPU. Must be called after glfw.Init() @@@ Is this true? What is it dependent on? The gl.CreateBuffer() definitely doesn't work if I put it in an init() method.
+func LoadModels() {
+	loadRectangles()
+	loadCircles()
+}
+
 var _ parallax.Parallax = (*ParallaxRect)(nil)
 var _ Shape = (*ParallaxRect)(nil)
 
@@ -79,12 +85,6 @@ func setColor(r, g, b, a float32) {
 		return x
 	}
 	gl.Uniform4f(shader.ColorUniform, bound(r), bound(g), bound(b), bound(a))
-}
-
-func cleanup(buf gl.Buffer) {
-	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
-	gl.DeleteBuffer(buf) // TODO: Unsure if this is needed.
-	// gl.BindBuffer(gl.ARRAY_BUFFER, gl.Buffer{Value: 0}) // Unbind buffer. Unsure if this is helpful.
 }
 
 func vec2ToFloat32(vecs []mgl32.Vec2) []float32 {

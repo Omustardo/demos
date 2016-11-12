@@ -16,13 +16,13 @@ var _ Shape = (*Rect)(nil)
 // the Scale, Rotation, and Translation matrices in the vertex shader.
 // NOTE: Be careful of using len(rectVertices). It's NOT an array of floats - it's an array of bytes.
 var (
-	rectTriangleVertices  []byte
-	rectLineStripVertices []byte
+	rectTriangleBuffer  gl.Buffer
+	rectLineStripBuffer gl.Buffer
 )
 
-func init() {
+func loadRectangles() {
 	lower, upper := float32(-0.5), float32(0.5)
-	rectTriangleVertices = f32.Bytes(binary.LittleEndian,
+	rectTriangleVertices := f32.Bytes(binary.LittleEndian,
 		// Triangle 1
 		lower, lower, 0,
 		upper, upper, 0,
@@ -32,14 +32,20 @@ func init() {
 		upper, lower, 0,
 		upper, upper, 0,
 	)
+	rectTriangleBuffer = gl.CreateBuffer()
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectTriangleBuffer)                   // Bind the target buffer so we can store values in it. https://www.opengl.org/sdk/docs/man4/html/glBindBuffer.xhtml
+	gl.BufferData(gl.ARRAY_BUFFER, rectTriangleVertices, gl.STATIC_DRAW) // store values in buffer
 
-	rectLineStripVertices = f32.Bytes(binary.LittleEndian,
+	rectLineStripVertices := f32.Bytes(binary.LittleEndian,
 		lower, lower, 0,
 		lower, upper, 0,
 		upper, upper, 0,
 		upper, lower, 0,
 		lower, lower, 0,
 	)
+	rectLineStripBuffer = gl.CreateBuffer()
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectLineStripBuffer)
+	gl.BufferData(gl.ARRAY_BUFFER, rectLineStripVertices, gl.STATIC_DRAW)
 }
 
 type Rect struct {
@@ -58,18 +64,14 @@ func (r *Rect) Draw() {
 	shader.SetScaleMatrix(r.Width, r.Height, 0)
 	shader.SetTranslationMatrix(r.X, r.Y, 0)
 
-	vbuffer := gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, rectLineStripVertices, gl.STATIC_DRAW)
-
-	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectLineStripBuffer)
 	itemSize := 3                                           // we use vertices made up of 3 floats
+	itemCount := 5                                          // 4 segments, which requires 5 points
+	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
 	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
-
-	itemCount := 5 // 4 segments, which requires 5 points
 	gl.DrawArrays(gl.LINE_STRIP, 0, itemCount)
 
-	cleanup(vbuffer)
+	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
 }
 
 func (r *Rect) DrawFilled() {
@@ -79,18 +81,14 @@ func (r *Rect) DrawFilled() {
 	shader.SetScaleMatrix(r.Width, r.Height, 0)
 	shader.SetTranslationMatrix(r.X, r.Y, 0)
 
-	vbuffer := gl.CreateBuffer()                                         // Generate buffer and returns a reference to it. https://www.khronos.org/opengles/sdk/docs/man/xhtml/glGenBuffers.xml
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbuffer)                              // Bind the target buffer so we can store values in it. https://www.opengl.org/sdk/docs/man4/html/glBindBuffer.xhtml
-	gl.BufferData(gl.ARRAY_BUFFER, rectTriangleVertices, gl.STATIC_DRAW) // store values in buffer
-
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectTriangleBuffer)
 	itemSize := 3                                           // because the points consist of 3 floats
 	itemCount := 6                                          // number of vertices in total
 	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
 	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
-
 	gl.DrawArrays(gl.TRIANGLES, 0, itemCount)
 
-	cleanup(vbuffer)
+	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
 }
 
 func (r *Rect) SetCenter(x, y float32) {

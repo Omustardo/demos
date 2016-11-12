@@ -3,48 +3,43 @@
 //
 package fps
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
+// FPS Counter keeps track of the number of frames in the last second.
 type FPSCounter struct {
-	// Smoothing is how much old framerate values affect the current FPS value. Larger smoothing mean that older
-	// values count for more. Smoothing must be in the range [0,1]
-	smoothing float32
-	prevTime  int64
-	framerate float32
+	framesLastSecond int
+	prevTime         int64
+	frameCounter     int
 }
 
 func NewFPSCounter() *FPSCounter {
 	return &FPSCounter{
-		smoothing: 0.9,
-		prevTime:  getTimeMillis(),
-		framerate: 1.0,
+		prevTime: getTimeMillis(),
 	}
 }
 
-// Update is expected to be called once per frame.
+// Update must be called once per frame.
 func (f *FPSCounter) Update() {
+	// TODO: Improve tracker so it actually keeps a track of the last second's worth of events.
 	currTime := getTimeMillis()
-	delta := currTime - f.prevTime
-	f.framerate = (float32(delta) * f.smoothing) + (f.framerate * (1.0 - f.smoothing))
-	f.prevTime = currTime
+	f.frameCounter++
+	if currTime-f.prevTime >= 1000 {
+		f.framesLastSecond = f.frameCounter
+		f.frameCounter = 0
+		f.prevTime = currTime
+	}
 }
 
-// GetFPS returns the estimated number of frames shown in the last second.
-func (f *FPSCounter) GetFPS() float32 {
-	return 1000 / f.framerate
+// GetFPS returns the number of frames shown in the last second.
+// Note that the counter is updated every second, so at most this could be the time period 0.999 to 1.999 seconds ago,
+// rather than the past second.
+func (f *FPSCounter) GetFPS() int {
+	return f.framesLastSecond
 }
 
 // GetFramerate returns an estimate of the average length of each frame.
 func (f *FPSCounter) GetFramerate() float32 {
-	return f.framerate
-}
-
-// GetFPS returns the number of frames shown in the last second.
-func (f *FPSCounter) GetFPSString() string {
-	return fmt.Sprintf("%.f", f.GetFPS())
+	return 1000 / float32(f.framesLastSecond)
 }
 
 func getTimeMillis() int64 {
