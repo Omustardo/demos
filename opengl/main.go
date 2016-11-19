@@ -3,9 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math"
-	"math/rand"
+	"log"
+	"os"
 	"time"
+
+	"path/filepath"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
@@ -16,6 +18,7 @@ import (
 	"github.com/omustardo/demos/opengl/mouse"
 	"github.com/omustardo/demos/opengl/shader"
 	"github.com/omustardo/demos/opengl/shape"
+	"github.com/omustardo/demos/opengl/util"
 )
 
 var (
@@ -27,21 +30,36 @@ var (
 const (
 	gametick  = time.Second / 3
 	framerate = time.Second / 60
+
+	// Screenshots are saved in the target folder. Their name is the millisecond timestamp when they are taken.
+	screenshotPath = `C:\Users\Omar\Desktop\screenshots\`
 )
+
+func init() {
+	log.SetFlags(log.Lshortfile) // log print with .go file and line number.
+	log.SetOutput(os.Stdout)
+
+	// To log to multiple locations:
+	//var b bytes.Buffer
+	//bufWriter := bufio.NewWriter(&b)
+	//log.SetOutput(io.MultiWriter(os.Stdout, os.Stderr, bufWriter))
+}
 
 func main() {
 	// TODO: Loading screen.
+	WindowSize[0], WindowSize[1] = *windowWidth, *windowHeight
+	windowWidth, windowHeight = nil, nil // Clear the flags. They're only for initialization and shouldn't be used elsewhere.
 
 	err := glfw.Init(gl.ContextWatcher)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer glfw.Terminate()
 	glfw.WindowHint(glfw.Samples, 16) // Anti-aliasing.
 
 	// Window hints to require OpenGL 3.2 or above, and to disable deprecated functions. https://open.gl/context#GLFW
 	// These hints are not supported since we're using goxjs/glfw rather than the regular glfw, but should be used in a
-	// standard desktop glfw project. TODO: Add support for these in goxjs/glfw/hint_glfw.go
+	// standard desktop glfw project. TODO: Add support for these in goxjs/glfw/hint_glfw.go or consider using a conditional build rule.
 	//glfw.WindowHint(glfw.ContextVersionMajor, 3)
 	//glfw.WindowHint(glfw.ContextVersionMinor, 2)
 	//glfw.WindowHint(glfw.OpenGLProfile, glfw.OPENGL_CORE_PROFILE)
@@ -49,9 +67,9 @@ func main() {
 
 	// Note CreateWindow ignores input size for WebGL/HTML canvas - it expands to fill browser window.
 	// It still matters for desktop.
-	window, err := glfw.CreateWindow(*windowWidth, *windowHeight, "Graphics Demo", nil, nil)
+	window, err := glfw.CreateWindow(WindowSize[0], WindowSize[1], "Graphics Demo", nil, nil)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	window.MakeContextCurrent()
@@ -66,7 +84,7 @@ func main() {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	gl.Enable(gl.CULL_FACE) // NOTE: If triangles appear to be missing, this is probably the cause. The order that vertices are listed matters.
 	//gl.Enable(gl.DEPTH_TEST) // TODO: Enable once everything uses 3D meshes. For now just depend on draw order.
-	//gl.DepthFunc(gl.LESS) // Accept fragment if it closer to the camera than the former one
+	//gl.DepthFunc(gl.LESS) // Accept fragment if it's closer to the camera than the former one
 
 	shape.LoadModels()
 
@@ -83,13 +101,12 @@ func main() {
 	// TODO: Support fullscreen
 
 	// Init shaders.
-	if err := shader.SetupProgram(); err != nil {
-		panic(err)
+	if err := shader.Initialize(); err != nil {
+		log.Fatal(err)
 	}
 
 	if err := gl.GetError(); err != 0 {
-		fmt.Printf("gl error: %v", err)
-		return
+		log.Fatalf("gl error: %v", err)
 	}
 
 	mouseHandler, mouseButtonCallback, cursorPositionCallback := mouse.NewHandler()
@@ -98,6 +115,7 @@ func main() {
 	keyboardHandler, keyboardCallback := keyboard.NewHandler()
 	window.SetKeyCallback(keyboardCallback)
 	// TODO: window.SetScrollCallback()
+	// TODO: gestures / touchpad support
 
 	fpsCounter := fps.NewFPSCounter()
 
@@ -106,7 +124,7 @@ func main() {
 		Width:  100,
 		Height: 100,
 		R:      0.8, G: 0.1, B: 0.3, A: 1,
-		Angle: float32(math.Pi / 2),
+		Angle: 0,
 	}
 	cam := camera.NewTargetCamera(player)
 
@@ -128,28 +146,13 @@ func main() {
 		},
 	}
 
-	genParallaxRects := func(count int, minWidth, maxWidth, minSpeedRatio, maxSpeedRatio float32) []shape.Shape {
-		shapes := make([]shape.Shape, count)
-		for i := 0; i < count; i++ {
-			shapes[i] = &shape.ParallaxRect{
-				Rect: shape.Rect{
-					X: rand.Float32()*2000 - 1000, Y: rand.Float32()*2000 - 1000, // Note not even distribution - they are drawn from bottom left corner so everything is Up and Right shifted slightly
-					R: rand.Float32(), G: rand.Float32(), B: rand.Float32(), A: 1,
-					Width:  rand.Float32()*(maxWidth-minWidth) + minWidth,
-					Height: rand.Float32()*(maxWidth-minWidth) + minWidth,
-					Angle:  rand.Float32() * 360,
-				},
-				Camera:        cam, // TODO: Changing the camera should be allowed, but right now it breaks this.
-				LocationRatio: rand.Float32()*(maxSpeedRatio-minSpeedRatio) + minSpeedRatio,
-			}
-		}
-		return shapes
-	}
-
-	parallaxObjects := genParallaxRects(50, 8, 5, 0.1, 0.2)                                // Near
-	parallaxObjects = append(parallaxObjects, genParallaxRects(30, 5, 3.5, 0.35, 0.5)...)  // Med
-	parallaxObjects = append(parallaxObjects, genParallaxRects(15, 2, 0.5, 0.75, 0.85)...) // Far
-	parallaxObjects = append(parallaxObjects, genParallaxRects(15, 1, 0.1, 0.9, 0.95)...)  // Distant
+	// Generate parallax rectangles.
+	parallaxObjects := shape.GenParallaxRects(cam, 500, 8, 5, 0.1, 0.2)                                // Near
+	parallaxObjects = append(parallaxObjects, shape.GenParallaxRects(cam, 300, 5, 3.5, 0.35, 0.5)...)  // Med
+	parallaxObjects = append(parallaxObjects, shape.GenParallaxRects(cam, 200, 2, 0.5, 0.75, 0.85)...) // Far
+	parallaxObjects = append(parallaxObjects, shape.GenParallaxRects(cam, 100, 1, 0.1, 0.9, 0.95)...)  // Distant
+	// Put the parallax info in buffers on the GPU. TODO: Consider using a single interleaved buffer. Stride and offset are annoying though.
+	parallaxPositionBuffer, parallaxTranslationBuffer, parallaxTranslationRatioBuffer, parallaxAngleBuffer, parallaxScaleBuffer, parallaxColorBuffer := shape.GetParallaxBuffers(parallaxObjects)
 
 	ticker := time.NewTicker(framerate)
 	gameTicker := time.NewTicker(gametick)
@@ -171,24 +174,31 @@ func main() {
 		}
 		cam.Update()
 
-		// player.Angle = float32(time.Now().Nanosecond() / 1000 % 180) // For testing rotation
-
 		// Set up Model-View-Projection Matrix and send it to the shader program.
 		mvMatrix := cam.ModelView()
 		pMatrix := mgl32.Ortho(-float32(WindowSize[0])/2, float32(WindowSize[0])/2,
 			-float32(WindowSize[1])/2, float32(WindowSize[1])/2,
 			cam.Near(), cam.Far())
-		shader.SetMVPMatrix(pMatrix, mvMatrix)
+		shader.Basic.SetMVPMatrix(pMatrix, mvMatrix)
+		shader.Parallax.SetMVPMatrix(pMatrix, mvMatrix)
 
 		// Clear screen, then Draw everything
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT) // TODO: Some cool graphical effects result from not clearing the screen.
 		shape.DrawXYZAxes()
 		for _, c := range miscCircles {
 			c.Draw()
 		}
-		for _, obj := range parallaxObjects {
-			obj.DrawFilled()
-		}
+
+		// Draw parallax objects
+		// Old inefficient way of drawing the rectangles one by one:
+		//for _, r := range parallaxObjects {
+		//	r.DrawFilled()
+		//}
+		// New batched method:
+		shape.DrawParallaxBuffers(6*len(parallaxObjects) /* vertices in total */, cam.Position().Vec2(),
+			parallaxPositionBuffer, parallaxTranslationBuffer, parallaxTranslationRatioBuffer,
+			parallaxAngleBuffer, parallaxScaleBuffer, parallaxColorBuffer)
+
 		player.Draw()
 
 		window.SwapBuffers() // Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
@@ -229,6 +239,10 @@ func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler,
 		move = move.Normalize().Mul(10)
 	}
 	player.ModifyCenter(move[0], move[1])
+
+	if keyboardHandler.IsKeyDown(glfw.KeySpace) && !keyboardHandler.WasKeyDown(glfw.KeySpace) {
+		util.SaveScreenshot(WindowSize[0], WindowSize[1], filepath.Join(screenshotPath, fmt.Sprintf("%d.png", util.GetTimeMillis())))
+	}
 
 	if mouseHandler.LeftPressed() {
 	}

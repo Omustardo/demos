@@ -5,47 +5,47 @@ import (
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
+	"github.com/omustardo/demos/opengl/bytecoder"
 	"github.com/omustardo/demos/opengl/shader"
-	"golang.org/x/mobile/exp/f32"
 )
 
 var _ Shape = (*Rect)(nil)
 
-// rectVertices are the float32 coordinates of two triangles (composing a 1x1 square), converted to a byte array.
-// This is the format required by OpenGL vertex buffers. This one buffer is used for all rectangles by modifying
-// the Scale, Rotation, and Translation matrices in the vertex shader.
-// NOTE: Be careful of using len(rectVertices). It's NOT an array of floats - it's an array of bytes.
 var (
-	rectTriangleBuffer  gl.Buffer
-	rectLineStripBuffer gl.Buffer
+	// Buffers are the float32 coordinates of two triangles (composing a 1x1 square), converted to a byte array, and
+	// stored on the GPU. The gl.Buffer here is a reference to them.
+	// This is the format required by OpenGL vertex buffers. This one buffer is used for all rectangles by modifying
+	// the Scale, Rotation, and Translation matrices in the vertex shader.
+	rectVertexBuffer gl.Buffer
+	// Index buffer - rather than passing a minimum of 4 points (12 floats) to define a rectangle, just pass the indices
+	// of those points in the rectTriangleBuffer.
+	rectTriangleIndexBuffer  gl.Buffer
+	rectLineStripIndexBuffer gl.Buffer
 )
 
 func loadRectangles() {
+	// Store basic rectangle vertices in a buffer.
 	lower, upper := float32(-0.5), float32(0.5)
-	rectTriangleVertices := f32.Bytes(binary.LittleEndian,
-		// Triangle 1
-		lower, lower, 0,
-		upper, upper, 0,
+	rectVertices := bytecoder.Float32(binary.LittleEndian,
 		lower, upper, 0,
-		// Triangle 2
 		lower, lower, 0,
 		upper, lower, 0,
 		upper, upper, 0,
 	)
-	rectTriangleBuffer = gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, rectTriangleBuffer)                   // Bind the target buffer so we can store values in it. https://www.opengl.org/sdk/docs/man4/html/glBindBuffer.xhtml
-	gl.BufferData(gl.ARRAY_BUFFER, rectTriangleVertices, gl.STATIC_DRAW) // store values in buffer
+	rectVertexBuffer = gl.CreateBuffer()
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectVertexBuffer)             // Bind the target buffer so we can store values in it. https://www.opengl.org/sdk/docs/man4/html/glBindBuffer.xhtml
+	gl.BufferData(gl.ARRAY_BUFFER, rectVertices, gl.STATIC_DRAW) // store values in buffer
 
-	rectLineStripVertices := f32.Bytes(binary.LittleEndian,
-		lower, lower, 0,
-		lower, upper, 0,
-		upper, upper, 0,
-		upper, lower, 0,
-		lower, lower, 0,
-	)
-	rectLineStripBuffer = gl.CreateBuffer()
-	gl.BindBuffer(gl.ARRAY_BUFFER, rectLineStripBuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, rectLineStripVertices, gl.STATIC_DRAW)
+	// Store references to the vertices in different buffers.
+	// For drawing full triangles, must specify two sets of 3 vertices. (gl.TRIANGLES)
+	// Be careful to specify the correct order or the wrong side of the triangle will be in front and won't be rendered.
+	rectTriangleIndexBuffer = gl.CreateBuffer()
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rectTriangleIndexBuffer)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, bytecoder.Uint16(binary.LittleEndian, 1, 2, 3, 1, 3, 0), gl.STATIC_DRAW)
+	// For drawing 4 line segments, must specify five points. (gl.LINE_LOOP)
+	rectLineStripIndexBuffer = gl.CreateBuffer()
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rectLineStripIndexBuffer)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, bytecoder.Uint16(binary.LittleEndian, 0, 1, 2, 3, 0), gl.STATIC_DRAW) // TODO: test leaving out the last index - does it automatically connect back? probably not.
 }
 
 type Rect struct {
@@ -58,38 +58,67 @@ type Rect struct {
 }
 
 func (r *Rect) Draw() {
-	setDefaults()
-	setColor(r.R, r.G, r.B, r.A)
-	shader.SetRotationMatrix2D(r.Angle) // TODO: Make sure we rotate around the rectangle's center, rather than bottom left.
-	shader.SetScaleMatrix(r.Width, r.Height, 0)
-	shader.SetTranslationMatrix(r.X, r.Y, 0)
+	shader.Basic.SetDefaults()
+	shader.Basic.SetColor(r.R, r.G, r.B, r.A)
+	shader.Basic.SetRotationMatrix2D(r.Angle)
+	shader.Basic.SetScaleMatrix(r.Width, r.Height, 0)
+	shader.Basic.SetTranslationMatrix(r.X, r.Y, 0)
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, rectLineStripBuffer)
-	itemSize := 3                                           // we use vertices made up of 3 floats
-	itemCount := 5                                          // 4 segments, which requires 5 points
-	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
-	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
-	gl.DrawArrays(gl.LINE_STRIP, 0, itemCount)
-
-	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	// Bind the array buffer before binding the element buffer, so it knows which array it's referencing.
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectVertexBuffer)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rectLineStripIndexBuffer)
+	itemSize := 3  // we use vertices made up of 3 floats
+	itemCount := 5 // 4 segments, which requires 5 points
+	gl.VertexAttribPointer(shader.Basic.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
+	gl.EnableVertexAttribArray(shader.Basic.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+	gl.DrawElements(gl.LINE_STRIP, itemCount, gl.UNSIGNED_SHORT, 0)
+	gl.DisableVertexAttribArray(shader.Basic.VertexPositionAttrib)
 }
 
 func (r *Rect) DrawFilled() {
-	setDefaults()
-	setColor(r.R, r.G, r.B, r.A)
-	shader.SetRotationMatrix2D(r.Angle) // TODO: Make sure we rotate around the rectangle's center, rather than bottom left.
-	shader.SetScaleMatrix(r.Width, r.Height, 0)
-	shader.SetTranslationMatrix(r.X, r.Y, 0)
+	shader.Basic.SetDefaults()
+	shader.Basic.SetColor(r.R, r.G, r.B, r.A)
+	shader.Basic.SetRotationMatrix2D(r.Angle)
+	shader.Basic.SetScaleMatrix(r.Width, r.Height, 0)
+	shader.Basic.SetTranslationMatrix(r.X, r.Y, 0)
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, rectTriangleBuffer)
-	itemSize := 3                                           // because the points consist of 3 floats
-	itemCount := 6                                          // number of vertices in total
-	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
-	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
-	gl.DrawArrays(gl.TRIANGLES, 0, itemCount)
+	// Bind the array buffer before binding the element buffer, so it knows which array it's referencing.
+	gl.BindBuffer(gl.ARRAY_BUFFER, rectVertexBuffer)
+	// Bind element buffer so it is the target for DrawElements().
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, rectTriangleIndexBuffer)
 
-	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	gl.VertexAttribPointer(shader.Basic.VertexPositionAttrib, 3 /* floats per vertex */, gl.FLOAT, false, 0, 0) // glVertexAttribPointer uses the buffer object that was bound to GL_ARRAY_BUFFER at the moment the function was called @@@ SUPER IMPORTANT
+	gl.EnableVertexAttribArray(shader.Basic.VertexPositionAttrib)                                               // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+	gl.DrawElements(gl.TRIANGLES, 6 /* num vertices for 2 triangles */, gl.UNSIGNED_SHORT, 0)
+
+	gl.DisableVertexAttribArray(shader.Basic.VertexPositionAttrib)
 }
+
+//func DrawRectsFilled(rects []Rect) {
+//	shader.Basic.SetDefaults()
+//	//shader.SetRotationMatrix2D(rects[0].Angle)
+//	//shader.SetScaleMatrix(rects[0].Width, rects[0].Height, 0)
+//	//shader.SetTranslationMatrix(rects[0].X, rects[0].Y, 0)
+//
+//	indices := []uint16{}
+//	for range rects {
+//		// Every rectangle has the same starting vertices. They will be translated in the shader. // TODO: recreating this slice each time is terrible.
+//		indices = append(indices, 1, 2, 3, 1, 3, 0)
+//	}
+//	indexBuffer := gl.CreateBuffer()
+//	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer)
+//	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, bytecoder.Uint16(binary.LittleEndian, indices...), gl.STATIC_DRAW)
+//
+//	gl.BindBuffer(gl.ARRAY_BUFFER, rectVertexBuffer)
+//
+//	itemSize := 3                                                 // because the points consist of 3 floats
+//	gl.EnableVertexAttribArray(shader.Basic.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+//	gl.VertexAttribPointer(shader.Basic.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
+//	gl.DrawElements(gl.TRIANGLES, len(indices), gl.UNSIGNED_SHORT, 0)
+//
+//	gl.DisableVertexAttribArray(shader.Basic.VertexPositionAttrib)
+//	gl.DeleteBuffer(indexBuffer)
+//}
 
 func (r *Rect) SetCenter(x, y float32) {
 	r.X = x
@@ -107,14 +136,4 @@ func (r *Rect) Position() mgl32.Vec3 {
 
 func (r *Rect) Center() mgl32.Vec2 {
 	return mgl32.Vec2{r.X, r.Y}
-	/* Finding center coordinate based on bottom left x,y coords.
-	rad := float64(mgl32.DegToRad(r.Angle))
-	cos := float32(math.Cos(rad))
-	sin := float32(math.Sin(rad))
-
-	return mgl32.Vec2{
-		r.X + r.Width/2*cos - r.Height/2*sin,
-		r.Y + r.Width/2*sin + r.Height/2*cos,
-	}
-	*/
 }

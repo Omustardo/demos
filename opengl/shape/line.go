@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
+	"github.com/omustardo/demos/opengl/bytecoder"
 	"github.com/omustardo/demos/opengl/shader"
-	"golang.org/x/mobile/exp/f32"
 )
 
 var _ Shape = (*Line)(nil)
@@ -40,29 +40,27 @@ func (l *Line) Position() mgl32.Vec3 { // Shape implements entity.Entity - rethi
 	return l.Center().Vec3(0)
 }
 
+// Draw draws a line. It creates and deletes a buffer on the GPU to do this, whcih is relatively expensive.
+// It's fine for drawing a few lines, but for many lines use a batched call.
 func (l *Line) Draw() {
-	setDefaults()
+	shader.Basic.SetDefaults()
 	vbuffer := gl.CreateBuffer()
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbuffer)
-	vertices := f32.Bytes(binary.LittleEndian,
+	vertices := bytecoder.Float32(binary.LittleEndian,
 		l.P1[0], l.P1[1], l.P1[2],
 		l.P2[0], l.P2[1], l.P2[2],
 	)
 	gl.BufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
-	itemSize := 3                                           // we use vertices made up of 3 floats
-	itemCount := 2                                          // 2 points
-	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
+	gl.EnableVertexAttribArray(shader.Basic.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+	itemSize := 3                                                 // we use vertices made up of 3 floats
+	itemCount := 2                                                // 2 points
+	gl.VertexAttribPointer(shader.Basic.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
 
-	// pMatrix := mgl32.Ortho2D(0, float32(WindowSize[0]), float32(WindowSize[1]), 0)
-	// mvMatrix := mgl32.Translate3D(0, 0, 0) // Rectangle coordinates are being provided as world coords... TODO: have a basic shape and just translate it.
-	// rotMatrix := mgl32.HomogRotate2D(angle) TODO: combine this with Projection and transform matrices in vertex shader
-
-	setColor(l.R, l.G, l.B, l.A) // set color
+	shader.Basic.SetColor(l.R, l.G, l.B, l.A)
 	gl.DrawArrays(gl.LINES, 0, itemCount)
 
-	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	gl.DisableVertexAttribArray(shader.Basic.VertexPositionAttrib)
 	gl.DeleteBuffer(vbuffer)
 }
 

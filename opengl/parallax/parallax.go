@@ -1,5 +1,7 @@
 package parallax
+
 import "github.com/go-gl/mathgl/mgl32"
+
 // Parallax interface allows for easy implementation of a Parallax effect.
 // Essentially, objects far away appear to move more slowly relative to the camera, so
 // to simulate this, an object should have a movement ratio, such as 0.5 - in which case you simply take

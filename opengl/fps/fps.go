@@ -3,7 +3,7 @@
 //
 package fps
 
-import "time"
+import "github.com/omustardo/demos/opengl/util"
 
 // FPS Counter keeps track of the number of frames in the last second.
 type FPSCounter struct {
@@ -14,14 +14,14 @@ type FPSCounter struct {
 
 func NewFPSCounter() *FPSCounter {
 	return &FPSCounter{
-		prevTime: getTimeMillis(),
+		prevTime: util.GetTimeMillis(),
 	}
 }
 
 // Update must be called once per frame.
 func (f *FPSCounter) Update() {
-	// TODO: Improve tracker so it actually keeps a track of the last second's worth of events.
-	currTime := getTimeMillis()
+	// TODO: Improve tracker so it actually keeps track of the last second's worth of events.
+	currTime := util.GetTimeMillis()
 	f.frameCounter++
 	if currTime-f.prevTime >= 1000 {
 		f.framesLastSecond = f.frameCounter
@@ -40,8 +40,4 @@ func (f *FPSCounter) GetFPS() int {
 // GetFramerate returns an estimate of the average length of each frame.
 func (f *FPSCounter) GetFramerate() float32 {
 	return 1000 / float32(f.framesLastSecond)
-}
-
-func getTimeMillis() int64 {
-	return time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
 }

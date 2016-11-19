@@ -45,14 +45,14 @@ func (t *Triangle) Position() mgl32.Vec3 { // Shape implements entity.Entity - r
 }
 
 func (t *Triangle) Draw() {
-	setDefaults()
+	shader.Basic.SetDefaults()
 	// TODO
 	t.DrawFilled()
 }
 
 func (t *Triangle) DrawFilled() {
-	setDefaults()
-	setColor(t.R, t.G, t.B, t.A)
+	shader.Basic.SetDefaults()
+	shader.Basic.SetColor(t.R, t.G, t.B, t.A)
 
 	// NOTE: Be careful of using len(vertices). It's NOT an array of floats - it's an array of bytes.
 	vertices := f32.Bytes(binary.LittleEndian,
@@ -65,13 +65,13 @@ func (t *Triangle) DrawFilled() {
 	gl.BindBuffer(gl.ARRAY_BUFFER, vbuffer)                  // Bind the target buffer so we can store values in it. https://www.opengl.org/sdk/docs/man4/html/glBindBuffer.xhtml
 	gl.BufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW) // store values in buffer
 
-	itemSize := 3                                           // because the points consist of 3 floats
-	itemCount := 3                                          // number of vertices in total
-	gl.EnableVertexAttribArray(shader.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
-	gl.VertexAttribPointer(shader.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
+	itemSize := 3                                                 // because the points consist of 3 floats
+	itemCount := 3                                                // number of vertices in total
+	gl.EnableVertexAttribArray(shader.Basic.VertexPositionAttrib) // https://www.opengl.org/sdk/docs/man2/xhtml/glEnableVertexAttribArray.xml
+	gl.VertexAttribPointer(shader.Basic.VertexPositionAttrib, itemSize, gl.FLOAT, false, 0, 0)
 
 	gl.DrawArrays(gl.TRIANGLES, 0, itemCount)
 
-	gl.DisableVertexAttribArray(shader.VertexPositionAttrib)
+	gl.DisableVertexAttribArray(shader.Basic.VertexPositionAttrib)
 	gl.DeleteBuffer(vbuffer)
 }
