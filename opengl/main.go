@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
-
 	"path/filepath"
+	"time"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
@@ -109,12 +108,12 @@ func main() {
 		log.Fatalf("gl error: %v", err)
 	}
 
-	mouseHandler, mouseButtonCallback, cursorPositionCallback := mouse.NewHandler()
+	mouseHandler, mouseButtonCallback, cursorPositionCallback, scrollCallback := mouse.NewHandler()
 	window.SetMouseButtonCallback(mouseButtonCallback)
 	window.SetCursorPosCallback(cursorPositionCallback)
 	keyboardHandler, keyboardCallback := keyboard.NewHandler()
 	window.SetKeyCallback(keyboardCallback)
-	// TODO: window.SetScrollCallback()
+	window.SetScrollCallback(scrollCallback)
 	// TODO: gestures / touchpad support
 
 	fpsCounter := fps.NewFPSCounter()

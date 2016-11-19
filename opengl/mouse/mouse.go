@@ -8,19 +8,26 @@ import (
 
 type Handler struct {
 	// State maps from buttons to whether they are pressed.
-	// TODO: Add mouse position
-	State            map[glfw.MouseButton]bool
-	PreviousState    map[glfw.MouseButton]bool
-	Position         mgl32.Vec2
-	PreviousPosition mgl32.Vec2
+	State, PreviousState map[glfw.MouseButton]bool
+
+	// Position is the space coordinate where the mouse pointer is.
+	// (0,0) is the top left of the drawable region (i.e. not including the title bar in a desktop environment).
+	// Down and right are positive. Up and left are negative.
+	Position, PreviousPosition mgl32.Vec2
+
+	// Scroll holds whether the scroll wheel was used.
+	// The X value is the standard forward/back, while the nonstandard left/right scrolling is in the Y value.
+	// While glfw says the value is a float, it appears to only be -1, 0, or 1.
+	// 1 for Forward/Left. -1 for Back/Right. 0 as a default.
+	Scroll, PreviousScroll mgl32.Vec2
 }
 
-func NewHandler() (*Handler, glfw.MouseButtonCallback, glfw.CursorPosCallback) {
+func NewHandler() (*Handler, glfw.MouseButtonCallback, glfw.CursorPosCallback, glfw.ScrollCallback) {
 	h := &Handler{
 		State:         make(map[glfw.MouseButton]bool),
 		PreviousState: make(map[glfw.MouseButton]bool),
 	}
-	return h, h.MouseButtonCallback, h.CursorPosCallback
+	return h, h.MouseButtonCallback, h.CursorPosCallback, h.ScrollCallback
 }
 
 // MouseButtonCallback is a function for glfw to call when a button event occurs.
@@ -34,9 +41,13 @@ func (h *Handler) MouseButtonCallback(window *glfw.Window, button glfw.MouseButt
 }
 
 // CursorPosCallback is a function for glfw to call when a button event occurs.
-func (h *Handler) CursorPosCallback(window *glfw.Window, xpos float64, ypos float64) {
+func (h *Handler) CursorPosCallback(window *glfw.Window, xpos, ypos float64) {
 	h.Position[0] = float32(xpos)
 	h.Position[1] = float32(ypos)
+}
+
+func (h *Handler) ScrollCallback(window *glfw.Window, xoff, yoff float64) {
+	h.Scroll[0], h.Scroll[1] = float32(xoff), float32(yoff)
 }
 
 func (h *Handler) setState(button glfw.MouseButton, action glfw.Action) {
@@ -59,6 +70,7 @@ func (h *Handler) Update() {
 		}
 	}
 	h.PreviousPosition[0], h.PreviousPosition[1] = h.Position[0], h.Position[1]
+	h.PreviousScroll[0], h.PreviousScroll[1] = h.Scroll[0], h.Scroll[1]
 }
 
 func (h *Handler) LeftPressed() bool {
