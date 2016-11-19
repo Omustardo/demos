@@ -12,6 +12,7 @@ import (
 	"github.com/goxjs/gl"
 	"github.com/goxjs/glfw"
 	"github.com/omustardo/demos/opengl/camera"
+	"github.com/omustardo/demos/opengl/camera/zoom"
 	"github.com/omustardo/demos/opengl/fps"
 	"github.com/omustardo/demos/opengl/keyboard"
 	"github.com/omustardo/demos/opengl/mouse"
@@ -153,6 +154,11 @@ func main() {
 	// Put the parallax info in buffers on the GPU. TODO: Consider using a single interleaved buffer. Stride and offset are annoying though.
 	parallaxPositionBuffer, parallaxTranslationBuffer, parallaxTranslationRatioBuffer, parallaxAngleBuffer, parallaxScaleBuffer, parallaxColorBuffer := shape.GetParallaxBuffers(parallaxObjects)
 
+	zoomer := zoom.NewScrollZoom(0.25, 3,
+		func() float32 { return mouseHandler.Scroll.Y() },
+		func() float32 { return mouseHandler.PreviousScroll.Y() },
+	)
+
 	ticker := time.NewTicker(framerate)
 	gameTicker := time.NewTicker(gametick)
 	debugLogTicker := time.NewTicker(time.Second)
@@ -160,8 +166,6 @@ func main() {
 		fpsCounter.Update()
 
 		// Handle Input
-		keyboardHandler.Update()
-		mouseHandler.Update()
 		ApplyInputs(keyboardHandler, mouseHandler, player)
 
 		// Run game logic
@@ -171,13 +175,13 @@ func main() {
 			}
 		default:
 		}
+		zoomer.Update()
 		cam.Update()
 
 		// Set up Model-View-Projection Matrix and send it to the shader program.
 		mvMatrix := cam.ModelView()
-		pMatrix := mgl32.Ortho(-float32(WindowSize[0])/2, float32(WindowSize[0])/2,
-			-float32(WindowSize[1])/2, float32(WindowSize[1])/2,
-			cam.Near(), cam.Far())
+		zoomPercent := zoomer.GetCurrentPercent()
+		pMatrix := cam.Projection(float32(WindowSize[0])/zoomPercent, float32(WindowSize[1])/zoomPercent) // TODO: Catch "possible" division by 0
 		shader.Basic.SetMVPMatrix(pMatrix, mvMatrix)
 		shader.Parallax.SetMVPMatrix(pMatrix, mvMatrix)
 
@@ -200,22 +204,28 @@ func main() {
 
 		player.Draw()
 
-		window.SwapBuffers() // Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
-		glfw.PollEvents()    // Reads window events, like input (?)
-
 		// Debug logging - limited to once every X seconds to avoid spam.
 		select {
 		case _, ok := <-debugLogTicker.C:
 			if ok {
-				fmt.Println("location:", cam.Position())
+				// fmt.Println("location:", cam.Position())
 				if mouseHandler.LeftPressed() {
 					fmt.Println("detected mouse press at", mouseHandler.Position)
 				}
-				fmt.Println(fpsCounter.GetFPS(), "fps")
+				// fmt.Println(fpsCounter.GetFPS(), "fps")
+				// fmt.Println("zoom%:", zoomPercent)
 			}
 		default:
 		}
-		<-ticker.C // wait up to 1/60th of a second. This caps framerate to 60 FPS.
+
+		window.SwapBuffers() // Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
+		// *handler.Update takes current input and stores it. This is necessary to detect things like the start of a keypress.
+		// It's important to do the update for inputs here before PollEvents. Doing these calls at the top of the game loop
+		// would result in the current input state being skipped, because it would immediately be stored as the previous state.
+		keyboardHandler.Update()
+		mouseHandler.Update()
+		glfw.PollEvents() // Reads window events, like keyboard and mouse input.
+		<-ticker.C        // wait up to 1/60th of a second. This caps framerate to 60 FPS.
 	}
 }
 

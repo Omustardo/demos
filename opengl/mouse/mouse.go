@@ -1,6 +1,8 @@
 // mouse handles mouse interaction with a glfw window.
 package mouse
 
+// TODO: How well does this handle unusual events? Try unplugging mouse. Using multiple mice.
+
 import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/glfw"
@@ -15,10 +17,12 @@ type Handler struct {
 	// Down and right are positive. Up and left are negative.
 	Position, PreviousPosition mgl32.Vec2
 
-	// Scroll holds whether the scroll wheel was used.
-	// The X value is the standard forward/back, while the nonstandard left/right scrolling is in the Y value.
-	// While glfw says the value is a float, it appears to only be -1, 0, or 1.
-	// 1 for Forward/Left. -1 for Back/Right. 0 as a default.
+	// Scroll holds how much scrolling has occurred since the start of the program.
+	// PreviousScroll is how much scrolling occurred since the start of the program, ignoring the most recent frame.
+	// To determine changes, subtract the two.
+	// The Y value is the standard forward/back, while the left/right scrolling available on some mice is in the X value.
+	// While glfw says the value is a float, I've only seen it as integers. One "tick" is +1 or -1 depending on direction.
+	// Positive for Forward/Left. Negative for Back/Right. 0 by default.
 	Scroll, PreviousScroll mgl32.Vec2
 }
 
@@ -42,12 +46,15 @@ func (h *Handler) MouseButtonCallback(window *glfw.Window, button glfw.MouseButt
 
 // CursorPosCallback is a function for glfw to call when a button event occurs.
 func (h *Handler) CursorPosCallback(window *glfw.Window, xpos, ypos float64) {
+	// log.Println("got cursor pos event:", xpos, ypos)
 	h.Position[0] = float32(xpos)
 	h.Position[1] = float32(ypos)
 }
 
 func (h *Handler) ScrollCallback(window *glfw.Window, xoff, yoff float64) {
-	h.Scroll[0], h.Scroll[1] = float32(xoff), float32(yoff)
+	// log.Println("got scroll event:", xoff, yoff)
+	h.Scroll[0] += float32(xoff)
+	h.Scroll[1] += float32(yoff)
 }
 
 func (h *Handler) setState(button glfw.MouseButton, action glfw.Action) {
@@ -63,14 +70,14 @@ func (h *Handler) setState(button glfw.MouseButton, action glfw.Action) {
 // whenever a physics step occurs.
 func (h *Handler) Update() {
 	h.PreviousState = h.State
-	h.State = make(map[glfw.MouseButton]bool)
+	h.State = make(map[glfw.MouseButton]bool) // TODO: making a new map every frame isn't good for garbage collection.
 	for b, pressed := range h.PreviousState {
 		if pressed {
 			h.State[b] = true
 		}
 	}
-	h.PreviousPosition[0], h.PreviousPosition[1] = h.Position[0], h.Position[1]
-	h.PreviousScroll[0], h.PreviousScroll[1] = h.Scroll[0], h.Scroll[1]
+	h.PreviousPosition = h.Position
+	h.PreviousScroll = h.Scroll
 }
 
 func (h *Handler) LeftPressed() bool {

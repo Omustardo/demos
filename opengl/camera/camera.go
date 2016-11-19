@@ -6,6 +6,7 @@ import (
 
 type Camera interface {
 	ModelView() mgl32.Mat4
+	Projection(width, height float32) mgl32.Mat4
 	Near() float32
 	Far() float32
 	Update()
