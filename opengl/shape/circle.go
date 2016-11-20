@@ -2,6 +2,7 @@ package shape
 
 import (
 	"encoding/binary"
+	"math"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
@@ -49,9 +50,22 @@ type Circle struct {
 }
 
 func (c *Circle) SetCenter(x, y float32) {
+	if math.IsNaN(float64(x)) {
+		x = 0
+	}
+	if math.IsNaN(float64(y)) {
+		y = 0
+	}
+
 	c.P[0], c.P[1] = x, y
 }
 func (c *Circle) ModifyCenter(x, y float32) {
+	if math.IsNaN(float64(x)) {
+		x = 0
+	}
+	if math.IsNaN(float64(y)) {
+		y = 0
+	}
 	c.P[0] += x
 	c.P[1] += y
 }

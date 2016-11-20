@@ -34,17 +34,19 @@ type ScrollZoom struct {
 
 // NewScrollZoom creates a ScrollZoom struct.
 // Example usage:
-// 	zoomer := zoom.NewScrollZoom(0.25, 3,
+// 	zoomer := zoom.NewScrollZoom(0.25, 3, // allows zooming out to 25% of the original size, and in to 300% of the original size.
 //	  func() float32 { return mouseHandler.Scroll.Y() },
 //		func() float32 { return mouseHandler.PreviousScroll.Y() },
 //  )
-// zoomer allows zooming out to 25% of the original size, and in to 300% of the original size.
 func NewScrollZoom(min, max float32, GetScrollAmount, GetPreviousScrollAmount func() float32) *ScrollZoom {
 	if min <= 0 {
 		panic(fmt.Sprintf("invalid min zoom: %v < 0", min))
 	}
 	if GetScrollAmount == nil {
 		panic("GetScrollAmount is undefined")
+	}
+	if GetPreviousScrollAmount == nil {
+		panic("GetPreviousScrollAmount is undefined")
 	}
 	// Try to default to no zoom. If range doesn't allow it, use the average.
 	curr := float32(1.0)

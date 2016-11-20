@@ -2,6 +2,7 @@ package shape
 
 import (
 	"encoding/binary"
+	"math"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
@@ -121,11 +122,23 @@ func (r *Rect) DrawFilled() {
 //}
 
 func (r *Rect) SetCenter(x, y float32) {
+	if math.IsNaN(float64(x)) {
+		x = 0
+	}
+	if math.IsNaN(float64(y)) {
+		y = 0
+	}
 	r.X = x
 	r.Y = y
 }
 
 func (r *Rect) ModifyCenter(x, y float32) {
+	if math.IsNaN(float64(x)) {
+		x = 0
+	}
+	if math.IsNaN(float64(y)) {
+		y = 0
+	}
 	r.X += x
 	r.Y += y
 }

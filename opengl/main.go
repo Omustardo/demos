@@ -166,6 +166,9 @@ func main() {
 	for !window.ShouldClose() {
 		fpsCounter.Update()
 
+		// TODO: All of the game logic needs to be based on delta time since it was last applied.
+		// Right now it's based on happening per-frame which isn't consistent, and definitely won't work for multiplayer.
+
 		// Handle Input
 		ApplyInputs(keyboardHandler, mouseHandler, player, cam)
 
@@ -178,7 +181,7 @@ func main() {
 		}
 		cam.Update()
 
-		// Set up Model-View-Projection Matrix and send it to the shader program.
+		// Set up Model-View-Projection Matrix and send it to the shader programs.
 		mvMatrix := cam.ModelView()
 		pMatrix := cam.Projection(float32(WindowSize[0]), float32(WindowSize[1]))
 		shader.Basic.SetMVPMatrix(pMatrix, mvMatrix)
@@ -218,10 +221,12 @@ func main() {
 		default:
 		}
 
-		window.SwapBuffers() // Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
+		// Swaps the buffer that was drawn on to be visible. The visible buffer becomes the one that gets drawn on until it's swapped again.
+		window.SwapBuffers()
 		// *handler.Update takes current input and stores it. This is necessary to detect things like the start of a keypress.
 		// It's important to do the update for inputs here before PollEvents. Doing these calls at the top of the game loop
-		// would result in the current input state being skipped, because it would immediately be stored as the previous state.
+		// is equivalent to doing them immediately after PollEvents, and would result in the current input state being
+		// skipped, because it would immediately be stored as the previous state.
 		keyboardHandler.Update()
 		mouseHandler.Update()
 		glfw.PollEvents() // Reads window events, like keyboard and mouse input.
@@ -243,10 +248,7 @@ func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler,
 	if keyboardHandler.IsKeyDown(glfw.KeyS) || keyboardHandler.DownPressed() {
 		move[1] = -1
 	}
-	// Without this check, Normalize() could result in [NaN, NaN]
-	if move.Len() != 0 {
-		move = move.Normalize().Mul(10)
-	}
+	move = move.Normalize().Mul(10)
 	player.ModifyCenter(move[0], move[1])
 
 	if keyboardHandler.IsKeyDown(glfw.KeySpace) && !keyboardHandler.WasKeyDown(glfw.KeySpace) {
@@ -256,10 +258,8 @@ func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler,
 	if mouseHandler.LeftPressed() {
 		move = cam.ScreenToWorldCoord2D(mouseHandler.Position, WindowSize).Sub(player.Position().Vec2())
 
-		if move.Len() != 0 {
-			move = move.Normalize().Mul(10)
-			player.ModifyCenter(move[0], move[1])
-		}
+		move = move.Normalize().Mul(10)
+		player.ModifyCenter(move[0], move[1])
 	}
 	if mouseHandler.RightPressed() {
 	}
