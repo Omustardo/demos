@@ -31,13 +31,9 @@ func SaveScreenshot(width, height int, path string) error {
 		}
 	}
 
-	out, err := os.Create(path)
+	out, err := os.Create(path) // TODO: WebGL isn't happy with this. Maybe store in memory and give an option to export?
 	if err != nil {
 		return err
 	}
-	err = png.Encode(out, img)
-	if err != nil {
-		return err
-	}
-	return nil
+	return png.Encode(out, img)
 }

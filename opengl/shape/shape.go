@@ -2,7 +2,6 @@ package shape
 
 import (
 	"encoding/binary"
-	"log"
 	"math/rand"
 
 	"github.com/go-gl/mathgl/mgl32"
@@ -90,7 +89,6 @@ func GetParallaxBuffers(arr []ParallaxRect) (parallaxPositionBuffer, parallaxTra
 			colorData = append(colorData, rect.R, rect.G, rect.B, rect.A)
 		}
 	}
-	log.Println("Buffer Sizes:", len(posData), len(transData), len(transRatioData), len(angleData), len(scaleData), len(colorData))
 	parallaxPositionBuffer = gl.CreateBuffer()
 	gl.BindBuffer(gl.ARRAY_BUFFER, parallaxPositionBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, bytecoder.Float32(binary.LittleEndian, posData...), gl.STATIC_DRAW)

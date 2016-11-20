@@ -13,6 +13,8 @@ const step = 60
 type Zoom interface {
 	// GetCurrentPercent returns the current percent zoom. Always a positive value.
 	GetCurrentPercent() float32
+	// Update must be called every frame.
+	Update()
 }
 
 // ScrollZoom implements Zoom for use with a camera's projection. Intended to get data from a mouse scroll wheel.

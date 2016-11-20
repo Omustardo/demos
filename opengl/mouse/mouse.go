@@ -2,6 +2,7 @@
 package mouse
 
 // TODO: How well does this handle unusual events? Try unplugging mouse. Using multiple mice.
+// TODO: Make fields "read-only" by making them private and providing getters.
 
 import (
 	"github.com/go-gl/mathgl/mgl32"

@@ -126,7 +126,13 @@ func main() {
 		R:      0.8, G: 0.1, B: 0.3, A: 1,
 		Angle: 0,
 	}
-	cam := camera.NewTargetCamera(player)
+	cam := camera.NewTargetCamera(
+		player,
+		zoom.NewScrollZoom(0.25, 3,
+			func() float32 { return mouseHandler.Scroll.Y() },
+			func() float32 { return mouseHandler.PreviousScroll.Y() },
+		),
+	)
 
 	miscCircles := []*shape.Circle{
 		{
@@ -154,11 +160,6 @@ func main() {
 	// Put the parallax info in buffers on the GPU. TODO: Consider using a single interleaved buffer. Stride and offset are annoying though.
 	parallaxPositionBuffer, parallaxTranslationBuffer, parallaxTranslationRatioBuffer, parallaxAngleBuffer, parallaxScaleBuffer, parallaxColorBuffer := shape.GetParallaxBuffers(parallaxObjects)
 
-	zoomer := zoom.NewScrollZoom(0.25, 3,
-		func() float32 { return mouseHandler.Scroll.Y() },
-		func() float32 { return mouseHandler.PreviousScroll.Y() },
-	)
-
 	ticker := time.NewTicker(framerate)
 	gameTicker := time.NewTicker(gametick)
 	debugLogTicker := time.NewTicker(time.Second)
@@ -166,7 +167,7 @@ func main() {
 		fpsCounter.Update()
 
 		// Handle Input
-		ApplyInputs(keyboardHandler, mouseHandler, player)
+		ApplyInputs(keyboardHandler, mouseHandler, player, cam)
 
 		// Run game logic
 		select {
@@ -175,13 +176,11 @@ func main() {
 			}
 		default:
 		}
-		zoomer.Update()
 		cam.Update()
 
 		// Set up Model-View-Projection Matrix and send it to the shader program.
 		mvMatrix := cam.ModelView()
-		zoomPercent := zoomer.GetCurrentPercent()
-		pMatrix := cam.Projection(float32(WindowSize[0])/zoomPercent, float32(WindowSize[1])/zoomPercent) // TODO: Catch "possible" division by 0
+		pMatrix := cam.Projection(float32(WindowSize[0]), float32(WindowSize[1]))
 		shader.Basic.SetMVPMatrix(pMatrix, mvMatrix)
 		shader.Parallax.SetMVPMatrix(pMatrix, mvMatrix)
 
@@ -208,12 +207,13 @@ func main() {
 		select {
 		case _, ok := <-debugLogTicker.C:
 			if ok {
-				// fmt.Println("location:", cam.Position())
-				if mouseHandler.LeftPressed() {
-					fmt.Println("detected mouse press at", mouseHandler.Position)
-				}
-				// fmt.Println(fpsCounter.GetFPS(), "fps")
-				// fmt.Println("zoom%:", zoomPercent)
+				// log.Println("location:", cam.Position())
+				// if mouseHandler.LeftPressed() {
+				// 	 log.Println("detected mouse press at", mouseHandler.Position)
+				// }
+				// log.Println(fpsCounter.GetFPS(), "fps")
+				// log.Println("zoom%:", cam.GetCurrentZoomPercent())
+				// log.Println("mouse screen->world:", mouseHandler.Position, cam.ScreenToWorldCoord2D(mouseHandler.Position, WindowSize))
 			}
 		default:
 		}
@@ -229,7 +229,7 @@ func main() {
 	}
 }
 
-func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler, player shape.Shape) {
+func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler, player shape.Shape, cam camera.Camera) {
 	var move mgl32.Vec2
 	if keyboardHandler.IsKeyDown(glfw.KeyA) || keyboardHandler.LeftPressed() {
 		move[0] = -1
@@ -254,7 +254,14 @@ func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler,
 	}
 
 	if mouseHandler.LeftPressed() {
+		move = cam.ScreenToWorldCoord2D(mouseHandler.Position, WindowSize).Sub(player.Position().Vec2())
+
+		if move.Len() != 0 {
+			move = move.Normalize().Mul(10)
+			player.ModifyCenter(move[0], move[1])
+		}
 	}
 	if mouseHandler.RightPressed() {
 	}
+
 }

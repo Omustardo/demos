@@ -7,7 +7,7 @@ var _ Camera = (*FreeCamera)(nil)
 
 // FreeCamera is an orthographic camera that is not attached to any player. It can be moved by modifying the Pos.
 type FreeCamera struct {
-	Pos [3]float32
+	Pos mgl32.Vec3
 }
 
 func (c *FreeCamera) ModelView() mgl32.Mat4 {
@@ -40,4 +40,15 @@ func (c *FreeCamera) Far() float32 {
 
 func (c *FreeCamera) Position() mgl32.Vec3 {
 	return c.Pos
+}
+
+func (c *FreeCamera) GetCurrentZoomPercent() float32 {
+	return 1
+}
+
+func (c *FreeCamera) ScreenToWorldCoord2D(screenPoint mgl32.Vec2, windowSize [2]int) mgl32.Vec2 {
+	return mgl32.Vec2{
+		c.Pos.X() + (screenPoint.X() - float32(windowSize[0])/2),
+		c.Pos.Y() - (screenPoint.Y() - float32(windowSize[1])/2),
+	}
 }
