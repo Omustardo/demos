@@ -152,6 +152,45 @@ func main() {
 		},
 	}
 
+	orbitingRects := []*shape.OrbitingRect{
+		shape.NewOrbitingRect(
+			shape.Rect{
+				Width:  100,
+				Height: 100,
+				R:      0.3, G: 0.1, B: 0.9, A: 1,
+				Angle: 0,
+			},
+			mgl32.Vec2{250, 380}, // Center of the orbit
+			350,                  // Orbit radius // TODO: Allow elliptical orbits.
+			5000,                 // Time to make a full revolution (all the way around the orbit)
+			5000,                 // Time to make a full rotation (turn fully around itself, i.e. 1 day)
+		),
+		shape.NewOrbitingRect(
+			shape.Rect{
+				Width:  80,
+				Height: 55,
+				R:      0.1, G: 0.4, B: 0.9, A: 1,
+				Angle: 0,
+			},
+			mgl32.Vec2{-400, -30}, // Center of the orbit
+			900,   // Orbit radius // TODO: Allow elliptical orbits.
+			10000, // Time to make a full revolution (all the way around the orbit)
+			5000,  // Time to make a full rotation (turn fully around itself, i.e. 1 day)
+		),
+		shape.NewOrbitingRect(
+			shape.Rect{
+				Width:  256,
+				Height: 256,
+				R:      0.8, G: 0.1, B: 0.2, A: 1,
+				Angle: 0,
+			},
+			mgl32.Vec2{-1500, 800}, // Center of the orbit
+			800,    // Orbit radius // TODO: Allow elliptical orbits.
+			200000, // Time to make a full revolution (all the way around the orbit)
+			2000,   // Time to make a full rotation (turn fully around itself, i.e. 1 day)
+		),
+	}
+
 	// Generate parallax rectangles.
 	parallaxObjects := shape.GenParallaxRects(cam, 500, 8, 5, 0.1, 0.2)                                // Near
 	parallaxObjects = append(parallaxObjects, shape.GenParallaxRects(cam, 300, 5, 3.5, 0.35, 0.5)...)  // Med
@@ -165,6 +204,9 @@ func main() {
 	debugLogTicker := time.NewTicker(time.Second)
 	for !window.ShouldClose() {
 		fpsCounter.Update()
+		for _, r := range orbitingRects {
+			r.Update()
+		}
 
 		// TODO: All of the game logic needs to be based on delta time since it was last applied.
 		// Right now it's based on happening per-frame which isn't consistent, and definitely won't work for multiplayer.
@@ -203,6 +245,11 @@ func main() {
 		shape.DrawParallaxBuffers(6*len(parallaxObjects) /* vertices in total */, cam.Position().Vec2(),
 			parallaxPositionBuffer, parallaxTranslationBuffer, parallaxTranslationRatioBuffer,
 			parallaxAngleBuffer, parallaxScaleBuffer, parallaxColorBuffer)
+
+		for _, r := range orbitingRects {
+			r.DrawOrbit()
+			r.DrawFilled()
+		}
 
 		player.Draw()
 

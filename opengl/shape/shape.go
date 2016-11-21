@@ -4,11 +4,14 @@ import (
 	"encoding/binary"
 	"math/rand"
 
+	"math"
+
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/goxjs/gl"
 	"github.com/omustardo/demos/opengl/bytecoder"
 	"github.com/omustardo/demos/opengl/entity"
 	"github.com/omustardo/demos/opengl/shader"
+	"github.com/omustardo/demos/opengl/util"
 )
 
 type Shape interface {
@@ -33,7 +36,6 @@ func LoadModels() {
 	loadCircles()
 }
 
-// var _ parallax.Parallax = (*ParallaxRect)(nil)
 var _ Shape = (*ParallaxRect)(nil)
 
 type ParallaxRect struct {
@@ -166,4 +168,44 @@ func (r *ParallaxRect) DrawFilled() {
 	// Draw and then set original coordinates back.
 	r.Rect.DrawFilled()
 	r.X, r.Y = xTemp, yTemp
+}
+
+type OrbitingRect struct {
+	Rect
+	revolutionSpeed int64 // milliseconds to go entirely around the orbit. i.e. one year for the earth.
+	orbit           Circle
+	rotateSpeed     int64 // milliseconds to do one full rotation. 0 to not rotate. i.e. one day for the earth.
+}
+
+func NewOrbitingRect(rect Rect, orbitCenter mgl32.Vec2, orbitRadius float32, revolutionSpeed, rotateSpeed int64) *OrbitingRect {
+	r := &OrbitingRect{
+		Rect: rect,
+		orbit: Circle{
+			P:      orbitCenter.Vec3(0),
+			Radius: orbitRadius,
+			R:      0.6, G: 0.6, B: 0.6, A: 1.0,
+		},
+		revolutionSpeed: revolutionSpeed,
+		rotateSpeed:     rotateSpeed,
+	}
+	r.Update()
+	return r
+}
+
+// TODO: Allow orbits and rotations to go counterclockwise.
+
+func (r *OrbitingRect) Update() {
+	now := util.GetTimeMillis()
+	percentRevolution := float32(now%r.revolutionSpeed) / float32(r.revolutionSpeed)
+	rads := percentRevolution * 2 * math.Pi
+	offset := mgl32.Vec2{float32(math.Cos(float64(rads))), float32(math.Sin(float64(rads)))}.Mul(r.orbit.Radius)
+	x, y := r.orbit.Position().Vec2().Add(offset).Elem()
+	r.SetCenter(x, y)
+
+	percentRotation := float32(now%r.rotateSpeed) / float32(r.rotateSpeed)
+	r.Angle = percentRotation * 360
+}
+
+func (r *OrbitingRect) DrawOrbit() {
+	r.orbit.Draw()
 }

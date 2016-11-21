@@ -53,7 +53,7 @@ type Rect struct {
 	// X, Y are the center coordinate of the rectangle.
 	X, Y          float32
 	Width, Height float32
-	// Angle is rotation around the center.
+	// Angle is degrees of rotation around the center.
 	Angle      float32
 	R, G, B, A float32
 }
@@ -61,7 +61,7 @@ type Rect struct {
 func (r *Rect) Draw() {
 	shader.Basic.SetDefaults()
 	shader.Basic.SetColor(r.R, r.G, r.B, r.A)
-	shader.Basic.SetRotationMatrix2D(r.Angle)
+	shader.Basic.SetRotationMatrix2D(mgl32.DegToRad(r.Angle))
 	shader.Basic.SetScaleMatrix(r.Width, r.Height, 0)
 	shader.Basic.SetTranslationMatrix(r.X, r.Y, 0)
 
@@ -79,7 +79,7 @@ func (r *Rect) Draw() {
 func (r *Rect) DrawFilled() {
 	shader.Basic.SetDefaults()
 	shader.Basic.SetColor(r.R, r.G, r.B, r.A)
-	shader.Basic.SetRotationMatrix2D(r.Angle)
+	shader.Basic.SetRotationMatrix2D(mgl32.DegToRad(r.Angle))
 	shader.Basic.SetScaleMatrix(r.Width, r.Height, 0)
 	shader.Basic.SetTranslationMatrix(r.X, r.Y, 0)
 
