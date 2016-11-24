@@ -9,14 +9,33 @@ import (
 	"github.com/goxjs/glfw"
 )
 
-type Handler struct {
+// Handler is the singleton mouse handler. It should be initialized with mouse.Initialize(), and then
+// all mouse related input should be obtained though it.
+var Handler *handler
+
+func Initialize(window *glfw.Window) {
+	if window == nil {
+		panic("window is nil")
+	}
+	var (
+		mouseButtonCallback    glfw.MouseButtonCallback
+		cursorPositionCallback glfw.CursorPosCallback
+		scrollCallback         glfw.ScrollCallback
+	)
+	Handler, mouseButtonCallback, cursorPositionCallback, scrollCallback = newHandler()
+	window.SetMouseButtonCallback(mouseButtonCallback)
+	window.SetCursorPosCallback(cursorPositionCallback)
+	window.SetScrollCallback(scrollCallback)
+}
+
+type handler struct {
 	// State maps from buttons to whether they are pressed.
 	State, PreviousState map[glfw.MouseButton]bool
 
-	// Position is the space coordinate where the mouse pointer is.
+	// position is the screen coordinate where the mouse pointer is.
 	// (0,0) is the top left of the drawable region (i.e. not including the title bar in a desktop environment).
 	// Down and right are positive. Up and left are negative.
-	Position, PreviousPosition mgl32.Vec2
+	position, previousPosition mgl32.Vec2
 
 	// Scroll holds how much scrolling has occurred since the start of the program.
 	// PreviousScroll is how much scrolling occurred since the start of the program, ignoring the most recent frame.
@@ -27,16 +46,16 @@ type Handler struct {
 	Scroll, PreviousScroll mgl32.Vec2
 }
 
-func NewHandler() (*Handler, glfw.MouseButtonCallback, glfw.CursorPosCallback, glfw.ScrollCallback) {
-	h := &Handler{
+func newHandler() (*handler, glfw.MouseButtonCallback, glfw.CursorPosCallback, glfw.ScrollCallback) {
+	h := &handler{
 		State:         make(map[glfw.MouseButton]bool),
 		PreviousState: make(map[glfw.MouseButton]bool),
 	}
-	return h, h.MouseButtonCallback, h.CursorPosCallback, h.ScrollCallback
+	return h, h.mouseButtonCallback, h.cursorPosCallback, h.scrollCallback
 }
 
-// MouseButtonCallback is a function for glfw to call when a button event occurs.
-func (h *Handler) MouseButtonCallback(window *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
+// mouseButtonCallback is a function for glfw to call when a button event occurs.
+func (h *handler) mouseButtonCallback(window *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 	// Note that this will overwrite any unhandled actions.
 	// For example, if you press the left mouse button and then release it without calling
 	// handler.Update() in between, it will appear as if no action was taken.
@@ -45,20 +64,21 @@ func (h *Handler) MouseButtonCallback(window *glfw.Window, button glfw.MouseButt
 	h.setState(button, action)
 }
 
-// CursorPosCallback is a function for glfw to call when a button event occurs.
-func (h *Handler) CursorPosCallback(window *glfw.Window, xpos, ypos float64) {
+// cursorPosCallback is a function for glfw to call when a button event occurs.
+func (h *handler) cursorPosCallback(window *glfw.Window, xpos, ypos float64) {
 	// log.Println("got cursor pos event:", xpos, ypos)
-	h.Position[0] = float32(xpos)
-	h.Position[1] = float32(ypos)
+	h.position[0] = float32(xpos)
+	h.position[1] = float32(ypos)
 }
 
-func (h *Handler) ScrollCallback(window *glfw.Window, xoff, yoff float64) {
+// scrollCallback is a function for glfw to call when a scroll wheel event occurs.
+func (h *handler) scrollCallback(window *glfw.Window, xoff, yoff float64) {
 	// log.Println("got scroll event:", xoff, yoff)
 	h.Scroll[0] += float32(xoff)
 	h.Scroll[1] += float32(yoff)
 }
 
-func (h *Handler) setState(button glfw.MouseButton, action glfw.Action) {
+func (h *handler) setState(button glfw.MouseButton, action glfw.Action) {
 	switch action {
 	case glfw.Press:
 		h.State[button] = true
@@ -67,9 +87,8 @@ func (h *Handler) setState(button glfw.MouseButton, action glfw.Action) {
 	}
 }
 
-// Update is expected to be called roughly once per frame. A likely choice is
-// whenever a physics step occurs.
-func (h *Handler) Update() {
+// Update is expected to be called once per frame, or more.
+func (h *handler) Update() {
 	h.PreviousState = h.State
 	h.State = make(map[glfw.MouseButton]bool) // TODO: making a new map every frame isn't good for garbage collection.
 	for b, pressed := range h.PreviousState {
@@ -77,19 +96,29 @@ func (h *Handler) Update() {
 			h.State[b] = true
 		}
 	}
-	h.PreviousPosition = h.Position
+	h.previousPosition = h.position
 	h.PreviousScroll = h.Scroll
 }
 
-func (h *Handler) LeftPressed() bool {
+func (h *handler) LeftPressed() bool {
 	return h.State[glfw.MouseButtonLeft]
 }
-func (h *Handler) RightPressed() bool {
+func (h *handler) RightPressed() bool {
 	return h.State[glfw.MouseButtonRight]
 }
-func (h *Handler) WasLeftPressed() bool {
+func (h *handler) WasLeftPressed() bool {
 	return h.PreviousState[glfw.MouseButtonLeft]
 }
-func (h *Handler) WasRightPressed() bool {
+func (h *handler) WasRightPressed() bool {
 	return h.PreviousState[glfw.MouseButtonRight]
+}
+
+// Position returns the screen coordinate where the mouse pointer is.
+// (0,0) is the top left of the drawable region (i.e. not including the title bar in a desktop environment).
+// Down and right are positive. Up and left are negative.
+func (h *handler) Position() mgl32.Vec2 {
+	return h.position
+}
+func (h *handler) PreviousPosition() mgl32.Vec2 {
+	return h.previousPosition
 }

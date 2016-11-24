@@ -13,12 +13,12 @@ import (
 	"github.com/goxjs/glfw"
 	"github.com/omustardo/demos/opengl/camera"
 	"github.com/omustardo/demos/opengl/camera/zoom"
-	"github.com/omustardo/demos/opengl/fps"
-	"github.com/omustardo/demos/opengl/keyboard"
-	"github.com/omustardo/demos/opengl/mouse"
+	"github.com/omustardo/demos/opengl/input/keyboard"
+	"github.com/omustardo/demos/opengl/input/mouse"
 	"github.com/omustardo/demos/opengl/shader"
 	"github.com/omustardo/demos/opengl/shape"
 	"github.com/omustardo/demos/opengl/util"
+	"github.com/omustardo/demos/opengl/util/fps"
 )
 
 var (
@@ -65,8 +65,7 @@ func main() {
 	//glfw.WindowHint(glfw.OpenGLProfile, glfw.OPENGL_CORE_PROFILE)
 	//glfw.WindowHint(glfw.OpenGLForwardCompatible, gl.TRUE)
 
-	// Note CreateWindow ignores input size for WebGL/HTML canvas - it expands to fill browser window.
-	// It still matters for desktop.
+	// Note CreateWindow ignores input size for WebGL/HTML canvas - it expands to fill browser window. This still matters for desktop.
 	window, err := glfw.CreateWindow(WindowSize[0], WindowSize[1], "Graphics Demo", nil, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -109,12 +108,9 @@ func main() {
 		log.Fatalf("gl error: %v", err)
 	}
 
-	mouseHandler, mouseButtonCallback, cursorPositionCallback, scrollCallback := mouse.NewHandler()
-	window.SetMouseButtonCallback(mouseButtonCallback)
-	window.SetCursorPosCallback(cursorPositionCallback)
+	mouse.Initialize(window)
 	keyboardHandler, keyboardCallback := keyboard.NewHandler()
 	window.SetKeyCallback(keyboardCallback)
-	window.SetScrollCallback(scrollCallback)
 	// TODO: gestures / touchpad support
 
 	fpsCounter := fps.NewFPSCounter()
@@ -129,8 +125,8 @@ func main() {
 	cam := camera.NewTargetCamera(
 		player,
 		zoom.NewScrollZoom(0.25, 3,
-			func() float32 { return mouseHandler.Scroll.Y() },
-			func() float32 { return mouseHandler.PreviousScroll.Y() },
+			func() float32 { return mouse.Handler.Scroll.Y() },
+			func() float32 { return mouse.Handler.PreviousScroll.Y() },
 		),
 	)
 
@@ -162,8 +158,9 @@ func main() {
 			},
 			mgl32.Vec2{250, 380}, // Center of the orbit
 			350,                  // Orbit radius // TODO: Allow elliptical orbits.
-			5000,                 // Time to make a full revolution (all the way around the orbit)
-			5000,                 // Time to make a full rotation (turn fully around itself, i.e. 1 day)
+			nil,
+			5000, // Time to make a full revolution (all the way around the orbit)
+			5000, // Time to make a full rotation (turn fully around itself, i.e. 1 day)
 		),
 		shape.NewOrbitingRect(
 			shape.Rect{
@@ -173,7 +170,8 @@ func main() {
 				Angle: 0,
 			},
 			mgl32.Vec2{-400, -30}, // Center of the orbit
-			900,   // Orbit radius // TODO: Allow elliptical orbits.
+			900, // Orbit radius // TODO: Allow elliptical orbits.
+			nil,
 			10000, // Time to make a full revolution (all the way around the orbit)
 			5000,  // Time to make a full rotation (turn fully around itself, i.e. 1 day)
 		),
@@ -185,11 +183,27 @@ func main() {
 				Angle: 0,
 			},
 			mgl32.Vec2{-1500, 800}, // Center of the orbit
-			800,    // Orbit radius // TODO: Allow elliptical orbits.
+			800, // Orbit radius // TODO: Allow elliptical orbits.
+			player,
 			200000, // Time to make a full revolution (all the way around the orbit)
 			2000,   // Time to make a full rotation (turn fully around itself, i.e. 1 day)
 		),
 	}
+	orbitingRects = append(orbitingRects,
+		shape.NewOrbitingRect(
+			shape.Rect{
+				Width:  128,
+				Height: 128,
+				R:      0.4, G: 0.4, B: 0.6, A: 1,
+				Angle: 0,
+			},
+			mgl32.Vec2{0, 0}, // Center of the orbit
+			400,              // Orbit radius // TODO: Allow elliptical orbits.
+			orbitingRects[0],
+			2000, // Time to make a full revolution (all the way around the orbit)
+			500,  // Time to make a full rotation (turn fully around itself, i.e. 1 day)
+		),
+	)
 
 	// Generate parallax rectangles.
 	parallaxObjects := shape.GenParallaxRects(cam, 500, 8, 5, 0.1, 0.2)                                // Near
@@ -212,7 +226,7 @@ func main() {
 		// Right now it's based on happening per-frame which isn't consistent, and definitely won't work for multiplayer.
 
 		// Handle Input
-		ApplyInputs(keyboardHandler, mouseHandler, player, cam)
+		ApplyInputs(keyboardHandler, player, cam)
 
 		// Run game logic
 		select {
@@ -248,6 +262,8 @@ func main() {
 
 		for _, r := range orbitingRects {
 			r.DrawOrbit()
+		}
+		for _, r := range orbitingRects {
 			r.DrawFilled()
 		}
 
@@ -275,13 +291,13 @@ func main() {
 		// is equivalent to doing them immediately after PollEvents, and would result in the current input state being
 		// skipped, because it would immediately be stored as the previous state.
 		keyboardHandler.Update()
-		mouseHandler.Update()
+		mouse.Handler.Update()
 		glfw.PollEvents() // Reads window events, like keyboard and mouse input.
 		<-ticker.C        // wait up to 1/60th of a second. This caps framerate to 60 FPS.
 	}
 }
 
-func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler, player shape.Shape, cam camera.Camera) {
+func ApplyInputs(keyboardHandler *keyboard.Handler, player shape.Shape, cam camera.Camera) {
 	var move mgl32.Vec2
 	if keyboardHandler.IsKeyDown(glfw.KeyA) || keyboardHandler.LeftPressed() {
 		move[0] = -1
@@ -302,13 +318,12 @@ func ApplyInputs(keyboardHandler *keyboard.Handler, mouseHandler *mouse.Handler,
 		util.SaveScreenshot(WindowSize[0], WindowSize[1], filepath.Join(screenshotPath, fmt.Sprintf("%d.png", util.GetTimeMillis())))
 	}
 
-	if mouseHandler.LeftPressed() {
-		move = cam.ScreenToWorldCoord2D(mouseHandler.Position, WindowSize).Sub(player.Position().Vec2())
+	if mouse.Handler.LeftPressed() {
+		move = cam.ScreenToWorldCoord2D(mouse.Handler.Position(), WindowSize).Sub(player.Position().Vec2())
 
 		move = move.Normalize().Mul(10)
 		player.ModifyCenter(move[0], move[1])
 	}
-	if mouseHandler.RightPressed() {
+	if mouse.Handler.RightPressed() {
 	}
-
 }

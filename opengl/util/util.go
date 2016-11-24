@@ -31,7 +31,7 @@ func SaveScreenshot(width, height int, path string) error {
 		}
 	}
 
-	out, err := os.Create(path) // TODO: WebGL isn't happy with this. Maybe store in memory and give an option to export?
+	out, err := os.Create(path) // TODO: WebGL isn't happy with this (no syscalls allowed). Maybe store screenshots in memory or a temp file, and give an option to export?
 	if err != nil {
 		return err
 	}

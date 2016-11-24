@@ -174,10 +174,11 @@ type OrbitingRect struct {
 	Rect
 	revolutionSpeed int64 // milliseconds to go entirely around the orbit. i.e. one year for the earth.
 	orbit           Circle
-	rotateSpeed     int64 // milliseconds to do one full rotation. 0 to not rotate. i.e. one day for the earth.
+	orbitTarget     entity.Entity // Makes the center of the orbit an object that can move. If nil, just uses the orbit's static center.
+	rotateSpeed     int64         // milliseconds to do one full rotation. 0 to not rotate. i.e. one day for the earth.
 }
 
-func NewOrbitingRect(rect Rect, orbitCenter mgl32.Vec2, orbitRadius float32, revolutionSpeed, rotateSpeed int64) *OrbitingRect {
+func NewOrbitingRect(rect Rect, orbitCenter mgl32.Vec2, orbitRadius float32, orbitTarget entity.Entity, revolutionSpeed, rotateSpeed int64) *OrbitingRect {
 	r := &OrbitingRect{
 		Rect: rect,
 		orbit: Circle{
@@ -185,6 +186,7 @@ func NewOrbitingRect(rect Rect, orbitCenter mgl32.Vec2, orbitRadius float32, rev
 			Radius: orbitRadius,
 			R:      0.6, G: 0.6, B: 0.6, A: 1.0,
 		},
+		orbitTarget:     orbitTarget,
 		revolutionSpeed: revolutionSpeed,
 		rotateSpeed:     rotateSpeed,
 	}
@@ -195,15 +197,18 @@ func NewOrbitingRect(rect Rect, orbitCenter mgl32.Vec2, orbitRadius float32, rev
 // TODO: Allow orbits and rotations to go counterclockwise.
 
 func (r *OrbitingRect) Update() {
+	if r.orbitTarget != nil {
+		r.orbit.P = r.orbitTarget.Position()
+	}
 	now := util.GetTimeMillis()
 	percentRevolution := float32(now%r.revolutionSpeed) / float32(r.revolutionSpeed)
 	rads := percentRevolution * 2 * math.Pi
 	offset := mgl32.Vec2{float32(math.Cos(float64(rads))), float32(math.Sin(float64(rads)))}.Mul(r.orbit.Radius)
-	x, y := r.orbit.Position().Vec2().Add(offset).Elem()
+	x, y := r.orbit.Center().Add(offset).Elem()
 	r.SetCenter(x, y)
 
 	percentRotation := float32(now%r.rotateSpeed) / float32(r.rotateSpeed)
-	r.Angle = percentRotation * 360
+	r.Angle = percentRotation * 2 * math.Pi
 }
 
 func (r *OrbitingRect) DrawOrbit() {
